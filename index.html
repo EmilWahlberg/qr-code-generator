@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>QR Code Generator</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #a0c3a2; /* Greenish background */
+    }
+
+    .container {
+      text-align: center;
+    }
+
+    .logo {
+      width: 400px;
+      margin-bottom: 2px;
+    }
+
+    .qr-image {
+      margin-bottom: 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100px; /* Ensure space for the QR code */
+    }
+
+    .qr-image img {
+      max-width: 200px;
+    }
+
+    .browse-btn, .download-btn {
+      display: inline-block;
+      background-color: #c8e5d1; /* Light green button color */
+      color: #000; /* Black text */
+      font-size: 25px;
+      padding: 5px 20px;
+      text-decoration: none;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 2px 2px 5px rgba(0, 0, 0, 0.3);
+      margin: 10px 5px;
+    }
+
+    .browse-btn:hover, .download-btn:hover {
+      background-color: #b5dcc4; /* Slightly darker green */
+      padding: 7px 23px;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <!-- Logo -->
+    <img src="logo.png" alt="QR Code Logo" class="logo">
+
+    <!-- QR Code Area -->
+    <div class="qr-image" id="qr-container">
+      <!-- QR Code will appear here -->
+    </div>
+
+    <!-- File Upload and Generate Buttons -->
+    <input type="file" id="file-input" accept="image/*" class="hidden">
+    <button class="browse-btn" onclick="document.getElementById('file-input').click()">BROWSE</button>
+    <button id="save-btn" class="download-btn hidden">Save QR Code Locally</button>
+  </div>
+
+  <!-- QRCode Library -->
+  <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
+  <script>
+    const fileInput = document.getElementById("file-input");
+    const qrContainer = document.getElementById("qr-container");
+    const saveBtn = document.getElementById("save-btn");
+
+    fileInput.addEventListener("change", () => {
+      const file = fileInput.files[0];
+      if (file) {
+        const reader = new FileReader();
+
+        reader.onload = async (event) => {
+          const imageBase64 = event.target.result;
+
+          // Upload the image to Imgur
+          try {
+            const response = await fetch("https://api.imgur.com/3/image", {
+              method: "POST",
+              headers: {
+                Authorization: "Client-ID YOUR_IMGUR_CLIENT_ID", // Replace with your Imgur Client ID
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                image: imageBase64.split(",")[1], // Remove the Base64 prefix
+                type: "base64",
+              }),
+            });
+
+            const data = await response.json();
+            if (data.success) {
+              const imageUrl = data.data.link;
+
+              // Generate QR Code for the image URL
+              QRCode.toDataURL(imageUrl, { width: 200, margin: 1 })
+                .then((qrCodeDataURL) => {
+                  // Clear previous QR code and add the new one
+                  qrContainer.innerHTML = "";
+                  const qrImage = document.createElement("img");
+                  qrImage.src = qrCodeDataURL;
+                  qrImage.alt = "Generated QR Code";
+                  qrImage.style.maxWidth = "200px";
+                  qrContainer.appendChild(qrImage);
+
+                  // Show the save button
+                  saveBtn.classList.remove("hidden");
+
+                  // Add functionality to save the QR code
+                  saveBtn.onclick = () => {
+                    const a = document.createElement("a");
+                    a.href = qrCodeDataURL;
+                    a.download = "qr-code.png";
+                    a.click();
+                  };
+
+                  alert(`Image uploaded! Public URL: ${imageUrl}`);
+                })
+                .catch((error) => {
+                  console.error("Error generating QR Code:", error);
+                  alert("An error occurred while generating the QR code.");
+                });
+            } else {
+              console.error("Error uploading image:", data);
+              alert("Failed to upload the image.");
+            }
+          } catch (error) {
+            console.error("Upload error:", error);
+            alert("An error occurred while uploading the image.");
+          }
+        };
+
+        reader.readAsDataURL(file);
+      } else {
+        alert("No file selected. Please choose an image file.");
+      }
+    });
+  </script>
+</body>
+</html>
